@@ -40,9 +40,7 @@ public class Sender {
             long startTime = System.nanoTime();
 
             DSPacket sot = new DSPacket(DSPacket.TYPE_SOT, 0, null);
-            sendPacket(sendSocket, receiverAddress, rcvDataPort, sot);
-
-            waitForAck(ackSocket, 0);
+            sendAndWaitAck(sendSocket, ackSocket, receiverAddress, rcvDataPort, sot);
 
             FileInputStream fis = new FileInputStream(inputFile);
 
@@ -68,9 +66,7 @@ public class Sender {
             if (packets.size() == 0) {
 
                 DSPacket eot = new DSPacket(DSPacket.TYPE_EOT, 1, null);
-                sendPacket(sendSocket, receiverAddress, rcvDataPort, eot);
-
-                waitForAck(ackSocket, 1);
+                sendAndWaitAck(sendSocket, ackSocket, receiverAddress, rcvDataPort, eot);
 
                 printTime(startTime);
                 sendSocket.close();
@@ -167,9 +163,7 @@ public class Sender {
             int eotSeq = (lastSeq + 1) % 128;
 
             DSPacket eot = new DSPacket(DSPacket.TYPE_EOT, eotSeq, null);
-            sendPacket(sendSocket, receiverAddress, rcvDataPort, eot);
-
-            waitForAck(ackSocket, eotSeq);
+            sendAndWaitAck(sendSocket, ackSocket, receiverAddress, rcvDataPort, eot);
 
             printTime(startTime);
 
@@ -239,4 +233,31 @@ public class Sender {
 
         System.out.printf("Total Transmission Time: %.2f seconds\n", seconds);
     }
+    private static void sendAndWaitAck(DatagramSocket sendSocket, DatagramSocket ackSocket,
+                                   InetAddress addr, int port, DSPacket packet) throws IOException {
+
+    int timeoutCount = 0;
+
+    while (true) {
+
+        sendPacket(sendSocket, addr, port, packet);
+
+        try {
+            int ack = receiveAck(ackSocket);
+
+            if (ack == packet.getSeqNum()) {
+                return;
+            }
+
+        } catch (SocketTimeoutException e) {
+
+            timeoutCount++;
+
+            if (timeoutCount >= 3) {
+                System.out.println("Unable to transfer file.");
+                System.exit(0);
+            }
+        }
+    }
+}
 }
