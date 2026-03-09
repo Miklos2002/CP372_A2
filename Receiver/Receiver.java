@@ -31,7 +31,7 @@ public class Receiver {
             boolean connected = false;
             boolean done = false;
             HashMap<Integer, DSPacket> bufferMap = new HashMap<>();
-            int windowSize = 128;
+            int windowSize = 80;
 
             while (!done) {
                 byte[] buffer = new byte[DSPacket.MAX_PACKET_SIZE];
@@ -93,10 +93,26 @@ public class Receiver {
                     System.out.println("Received EOT seq=" + seq);
 
                     ackCount++;
-                    sendAck(socket, senderAddress, senderAckPort, seq, ackCount, rn);
 
-                    done = true;
-                }
+                    if (ChaosEngine.shouldDrop(ackCount, rn)) {
+                         System.out.println("ACK seq=" + seq + " dropped");
+                        } else {
+                DSPacket ackPacket = new DSPacket(DSPacket.TYPE_ACK, seq, new byte[0]);
+                byte[] ackBytes = ackPacket.toBytes();
+
+                DatagramPacket udpAck = new DatagramPacket(
+                ackBytes,
+                ackBytes.length,    
+                senderAddress,
+                senderAckPort
+        );
+
+        socket.send(udpAck);
+        System.out.println("ACK seq=" + seq + " sent");
+
+        done = true;
+    }
+}
             }
 
             System.out.println("File transfer complete.");
